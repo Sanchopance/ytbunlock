@@ -50,7 +50,7 @@ install_youtubeunblock_packages() {
         echo "$PACK_NAME уже установлен"
     else
         # Установка зависимостей
-        PACKAGES="kmod-nfnetlink-queue kmod-nft-queue kmod-nf-conntrack"
+        PACKAGES="kmod-nft-queue kmod-nf-conntrack"
         for pkg in $PACKAGES; do
             if ! opkg list-installed | grep -q "^$pkg "; then
                 echo "Устанавливаем $pkg..."
