@@ -1,6 +1,6 @@
 #!/bin/sh
 
-URL="https://raw.githubusercontent.com/Sanchopance/ytb/refs/heads/main"
+URL="https://raw.githubusercontent.com/Sanchopance/ytbunlock/refs/heads/main"
 DIR="/etc/config"
 DIR_BACKUP="/root/backup"
 config_files="youtubeUnblock"
