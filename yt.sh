@@ -1,9 +1,6 @@
 #!/bin/sh
 
 URL="https://raw.githubusercontent.com/Sanchopance/ytbunlock/refs/heads/main"
-DIR="/etc/config"
-DIR_BACKUP="/root/backup"
-config_files="youtubeUnblock"
 
 # Функция управления пакетами
 manage_package() {
@@ -64,7 +61,7 @@ install_youtubeunblock_packages() {
         # Установка основного пакета
         YOUTUBEUNBLOCK_FILENAME="youtubeUnblock-1.0.0-10-f37c3dd-${PKGARCH}-openwrt-23.05.ipk"
         DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
-        echo "Скачиваем $PACK_NAME с $DOWNLOAD_URL"
+        echo "Скачиваем $PACK_NAME"
         
         wget -O "$AWG_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
             echo "Не удалось скачать $PACK_NAME!"
@@ -82,7 +79,7 @@ install_youtubeunblock_packages() {
     if ! opkg list-installed | grep -q $PACK_NAME; then
         YOUTUBEUNBLOCK_FILENAME="luci-app-youtubeUnblock-1.0.0-10-f37c3dd.ipk"
         DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
-        echo "Скачиваем $PACK_NAME с $DOWNLOAD_URL"
+        echo "Скачиваем $PACK_NAME"
         
         wget -O "$AWG_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
             echo "Не удалось скачать $PACK_NAME!"
@@ -100,28 +97,6 @@ install_youtubeunblock_packages() {
 
 # Основное выполнение
 echo "Процесс установки запущен..."
-
-# Создание бэкапа конфигурации
-if [ ! -d "$DIR_BACKUP" ]; then
-    echo "Создаем резервную копию..."
-    mkdir -p "$DIR_BACKUP"
-    for file in $config_files; do
-        if [ -f "$DIR/$file" ]; then
-            cp -f "$DIR/$file" "$DIR_BACKUP/$file" || {
-                echo "Не удалось сделать резервную копию $file!"
-                exit 1
-            }
-        fi
-    done
-
-    echo "Загружаем новые конфиги..."
-    for file in $config_files; do
-        wget -O "$DIR/$file" "$URL/config_files/$file" || {
-            echo "Не удалось загрузить конфигурацию $file!"
-            exit 1
-        }
-    done
-fi
 
 # Установка пакетов
 install_youtubeunblock_packages
