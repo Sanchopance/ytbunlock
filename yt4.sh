@@ -25,7 +25,7 @@ manage_package() {
     esac
 }
 
-# Функция для получения последней версии (используем wget вместо curl)
+# Функция для получения последней версии
 get_latest_version() {
     wget -qO- https://api.github.com/repos/Waujito/youtubeUnblock/releases/latest | \
     grep '"tag_name":' | \
@@ -39,15 +39,6 @@ install_youtubeunblock_packages() {
         echo "Не удалось обновить списки пакетов! Проверьте время на устройстве"
         exit 1
     }
-
-    # Установка wget если отсутствует
-    if ! command -v wget >/dev/null; then
-        echo "Устанавливаем wget..."
-        opkg install wget || {
-            echo "Не удалось установить wget!"
-            exit 1
-        }
-    fi
 
     # Получаем архитектуру и версию прошивки
     PKGARCH=$(opkg print-architecture | awk 'BEGIN {max=0} {if ($3 > max) {max = $3; arch = $2}} END {print arch}')
@@ -92,7 +83,7 @@ install_youtubeunblock_packages() {
     DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
     echo "Скачиваем $PACK_NAME ($YOUTUBEUNBLOCK_FILENAME)"
     
-    wget -q --show-progress -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
+    wget -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
         echo "Не удалось скачать $PACK_NAME!"
         exit 1
     }
@@ -109,7 +100,7 @@ install_youtubeunblock_packages() {
         DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
         echo "Скачиваем $PACK_NAME"
         
-        wget -q --show-progress -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
+        wget -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
             echo "Не удалось скачать $PACK_NAME!"
             exit 1
         }
