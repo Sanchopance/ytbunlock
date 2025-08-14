@@ -25,11 +25,17 @@ manage_package() {
     esac
 }
 
-# Функция для получения последней версии
-get_latest_version() {
-    wget -qO- https://api.github.com/repos/Waujito/youtubeUnblock/releases/latest | \
-    grep '"tag_name":' | \
-    sed -E 's/.*"([^"]+)".*/\1/'
+# Функция определения архитектуры
+get_architecture() {
+    ARCH=$(opkg print-architecture | awk '{print $2}' | head -1)
+    case $ARCH in
+        "mipsel_24kc") echo "mipsel_24kc" ;;
+        "mipsel_74kc") echo "mipsel_74kc" ;;
+        "aarch64_cortex-a53") echo "aarch64_cortex-a53" ;;
+        "arm_cortex-a7_neon-vfpv4") echo "arm_cortex-a7_neon-vfpv4" ;;
+        "x86_64") echo "x86_64" ;;
+        *) echo "unknown" ;;
+    esac
 }
 
 # Функция установки youtubeUnblock
@@ -40,17 +46,15 @@ install_youtubeunblock_packages() {
         exit 1
     }
 
-    # Получаем архитектуру и версию прошивки
-    PKGARCH=$(opkg print-architecture | awk 'BEGIN {max=0} {if ($3 > max) {max = $3; arch = $2}} END {print arch}')
-    VERSION=$(ubus call system board | jsonfilter -e '@.release.version' | cut -d. -f1,2)
-    LATEST_VERSION=$(get_latest_version)
-    
-    if [ -z "$LATEST_VERSION" ]; then
-        echo "Не удалось определить последнюю версию youtubeUnblock! Используем версию по умолчанию 1.0.0"
-        LATEST_VERSION="v1.0.0"
+    # Определяем архитектуру
+    ARCH=$(get_architecture)
+    if [ "$ARCH" = "unknown" ]; then
+        echo "Неизвестная архитектура процессора!"
+        exit 1
     fi
 
-    BASE_URL="https://github.com/Waujito/youtubeUnblock/releases/download/${LATEST_VERSION}/"
+    VERSION="1.1.0"
+    BASE_URL="https://github.com/Waujito/youtubeUnblock/releases/download/v${VERSION}/"
     PACK_NAME="youtubeUnblock"
 
     TEMP_DIR="/tmp/$PACK_NAME"
@@ -59,10 +63,10 @@ install_youtubeunblock_packages() {
     # Проверяем, установлен ли уже пакет
     if opkg list-installed | grep -q "^$PACK_NAME"; then
         CURRENT_VERSION=$(opkg list-installed | grep "^$PACK_NAME" | cut -d' ' -f3)
-        if [ "$CURRENT_VERSION" = "${LATEST_VERSION#v}" ]; then
-            echo "$PACK_NAME уже установлен последней версии ($LATEST_VERSION)"
+        if [ "$CURRENT_VERSION" = "$VERSION" ]; then
+            echo "$PACK_NAME уже установлен последней версии ($VERSION)"
         else
-            echo "Обновляем $PACK_NAME с версии $CURRENT_VERSION на $LATEST_VERSION"
+            echo "Обновляем $PACK_NAME с версии $CURRENT_VERSION на $VERSION"
         fi
     fi
 
@@ -79,7 +83,7 @@ install_youtubeunblock_packages() {
     done
     
     # Установка основного пакета
-    YOUTUBEUNBLOCK_FILENAME="youtubeUnblock-${LATEST_VERSION#v}-${PKGARCH}-openwrt-${VERSION}.ipk"
+    YOUTUBEUNBLOCK_FILENAME="youtubeUnblock-${VERSION}-1-473af29-${ARCH}-openwrt-23.05.ipk"
     DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
     echo "Скачиваем $PACK_NAME ($YOUTUBEUNBLOCK_FILENAME)"
     
@@ -96,7 +100,7 @@ install_youtubeunblock_packages() {
     # Установка Luci интерфейса
     PACK_NAME="luci-app-youtubeUnblock"
     if ! opkg list-installed | grep -q "^$PACK_NAME"; then
-        YOUTUBEUNBLOCK_FILENAME="luci-app-youtubeUnblock-${LATEST_VERSION#v}.ipk"
+        YOUTUBEUNBLOCK_FILENAME="luci-app-youtubeUnblock-${VERSION}-1-473af29.ipk"
         DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
         echo "Скачиваем $PACK_NAME"
         
