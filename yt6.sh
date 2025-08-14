@@ -11,13 +11,11 @@ manage_package() {
         return 1
     fi
 
-    # Управление автозапуском
     case "$autostart" in
         enable) /etc/init.d/$name enable ;;
         disable) /etc/init.d/$name disable ;;
     esac
 
-    # Управление процессом
     case "$process" in
         start) /etc/init.d/$name start ;;
         stop) /etc/init.d/$name stop ;;
@@ -25,16 +23,20 @@ manage_package() {
     esac
 }
 
-# Функция определения архитектуры
+# Улучшенная функция определения архитектуры
 get_architecture() {
-    ARCH=$(opkg print-architecture | awk '{print $2}' | head -1)
+    ARCH=$(uname -m)
     case $ARCH in
-        "mipsel_24kc") echo "mipsel_24kc" ;;
-        "mipsel_74kc") echo "mipsel_74kc" ;;
-        "aarch64_cortex-a53") echo "aarch64_cortex-a53" ;;
-        "arm_cortex-a7_neon-vfpv4") echo "arm_cortex-a7_neon-vfpv4" ;;
+        "mips24kc") echo "mipsel_24kc" ;;
+        "mips74kc") echo "mipsel_74kc" ;;
+        "aarch64") echo "aarch64_cortex-a53" ;;
+        "armv7l") echo "arm_cortex-a7_neon-vfpv4" ;;
         "x86_64") echo "x86_64" ;;
-        *) echo "unknown" ;;
+        *)
+            # Попробуем определить через opkg
+            ARCH=$(opkg print-architecture | awk '{print $2}' | head -1)
+            echo "$ARCH"
+            ;;
     esac
 }
 
@@ -48,23 +50,21 @@ install_youtubeunblock_packages() {
 
     # Определяем архитектуру
     ARCH=$(get_architecture)
-    if [ "$ARCH" = "unknown" ]; then
-        echo "Неизвестная архитектура процессора!"
-        exit 1
-    fi
+    echo "Определена архитектура: $ARCH"
 
     VERSION="1.1.0"
+    HASH="473af29"
     BASE_URL="https://github.com/Waujito/youtubeUnblock/releases/download/v${VERSION}/"
     PACK_NAME="youtubeUnblock"
 
     TEMP_DIR="/tmp/$PACK_NAME"
     mkdir -p "$TEMP_DIR"
     
-    # Проверяем, установлен ли уже пакет
+    # Проверка установленного пакета
     if opkg list-installed | grep -q "^$PACK_NAME"; then
         CURRENT_VERSION=$(opkg list-installed | grep "^$PACK_NAME" | cut -d' ' -f3)
         if [ "$CURRENT_VERSION" = "$VERSION" ]; then
-            echo "$PACK_NAME уже установлен последней версии ($VERSION)"
+            echo "$PACK_NAME уже установлен версии $VERSION"
         else
             echo "Обновляем $PACK_NAME с версии $CURRENT_VERSION на $VERSION"
         fi
@@ -83,14 +83,22 @@ install_youtubeunblock_packages() {
     done
     
     # Установка основного пакета
-    YOUTUBEUNBLOCK_FILENAME="youtubeUnblock-${VERSION}-1-473af29-${ARCH}-openwrt-23.05.ipk"
+    YOUTUBEUNBLOCK_FILENAME="youtubeUnblock-${VERSION}-1-${HASH}-${ARCH}-openwrt-23.05.ipk"
     DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
-    echo "Скачиваем $PACK_NAME ($YOUTUBEUNBLOCK_FILENAME)"
+    echo "Пытаемся скачать: $DOWNLOAD_URL"
     
-    wget -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
-        echo "Не удалось скачать $PACK_NAME!"
-        exit 1
-    }
+    if ! wget -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL"; then
+        echo "Пробуем альтернативное имя пакета..."
+        # Попробуем вариант без указания версии OpenWrt
+        YOUTUBEUNBLOCK_FILENAME="youtubeUnblock-${VERSION}-1-${HASH}-${ARCH}.ipk"
+        DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
+        wget -O "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" "$DOWNLOAD_URL" || {
+            echo "Не удалось скачать $PACK_NAME для архитектуры $ARCH!"
+            echo "Пожалуйста, установите пакет вручную с GitHub:"
+            echo "https://github.com/Waujito/youtubeUnblock/releases/tag/v$VERSION"
+            exit 1
+        }
+    fi
     
     opkg install "$TEMP_DIR/$YOUTUBEUNBLOCK_FILENAME" || {
         echo "Не удалось установить $PACK_NAME!"
@@ -100,7 +108,7 @@ install_youtubeunblock_packages() {
     # Установка Luci интерфейса
     PACK_NAME="luci-app-youtubeUnblock"
     if ! opkg list-installed | grep -q "^$PACK_NAME"; then
-        YOUTUBEUNBLOCK_FILENAME="luci-app-youtubeUnblock-${VERSION}-1-473af29.ipk"
+        YOUTUBEUNBLOCK_FILENAME="luci-app-youtubeUnblock-${VERSION}-1-${HASH}.ipk"
         DOWNLOAD_URL="${BASE_URL}${YOUTUBEUNBLOCK_FILENAME}"
         echo "Скачиваем $PACK_NAME"
         
@@ -122,19 +130,17 @@ install_youtubeunblock_packages() {
 add_telegram_config() {
     CONFIG_FILE="/etc/config/youtubeUnblock"
     
-    # Проверяем существует ли файл
     if [ ! -f "$CONFIG_FILE" ]; then
         echo "Конфигурационный файл не найден, создаем новый..."
         touch "$CONFIG_FILE"
     fi
 
-    # Проверяем есть ли уже секция для Telegram
     if uci show youtubeUnblock | grep -q "CallsWhatsAppTelegram"; then
         echo "Конфигурация для Telegram уже существует, пропускаем..."
         return 0
     fi
 
-    echo "Добавляем конфигурацию Telegram в конец файла..."
+    echo "Добавляем конфигурацию Telegram..."
     cat >> "$CONFIG_FILE" <<EOF
 
 config section
@@ -175,25 +181,21 @@ EOF
     uci commit youtubeUnblock
 }
 
-# Основное выполнение
-echo "Процесс установки запущен..."
+# Основной процесс установки
+echo "Начало установки youtubeUnblock..."
 
-# Установка пакетов
 install_youtubeunblock_packages
-
-# Добавление конфигурации
 add_telegram_config
 
-# Настройка сервиса
 manage_package "youtubeUnblock" "enable" "start" || {
-    echo "Не удалось настроить youtubeUnblock!"
+    echo "Ошибка настройки сервиса!"
     exit 1
 }
 
-echo "Перезапуск службы..."
+echo "Перезапускаем сервис..."
 service youtubeUnblock restart || {
-    echo "Не удалось перезапустить службу youtubeUnblock"
+    echo "Не удалось перезапустить сервис"
     exit 1
 }
 
-printf "\033[32;1mУстановка завершена успешно!\n\nУправление youtubeUnblock доступно в веб-интерфейсе вашего роутера:\nhttp://адрес-роутера/cgi-bin/luci/admin/services/youtubeUnblock\033[0m\n"
+printf "\033[32;1mУстановка успешно завершена!\n\nДоступ к управлению:\nhttp://адрес-роутера/cgi-bin/luci/admin/services/youtubeUnblock\033[0m\n"
