@@ -25,9 +25,9 @@ manage_package() {
     esac
 }
 
-# Функция для получения последней версии
+# Функция для получения последней версии (используем wget вместо curl)
 get_latest_version() {
-    curl -s https://api.github.com/repos/Waujito/youtubeUnblock/releases/latest | \
+    wget -qO- https://api.github.com/repos/Waujito/youtubeUnblock/releases/latest | \
     grep '"tag_name":' | \
     sed -E 's/.*"([^"]+)".*/\1/'
 }
@@ -40,14 +40,23 @@ install_youtubeunblock_packages() {
         exit 1
     }
 
+    # Установка wget если отсутствует
+    if ! command -v wget >/dev/null; then
+        echo "Устанавливаем wget..."
+        opkg install wget || {
+            echo "Не удалось установить wget!"
+            exit 1
+        }
+    fi
+
     # Получаем архитектуру и версию прошивки
     PKGARCH=$(opkg print-architecture | awk 'BEGIN {max=0} {if ($3 > max) {max = $3; arch = $2}} END {print arch}')
     VERSION=$(ubus call system board | jsonfilter -e '@.release.version' | cut -d. -f1,2)
     LATEST_VERSION=$(get_latest_version)
     
     if [ -z "$LATEST_VERSION" ]; then
-        echo "Не удалось определить последнюю версию youtubeUnblock!"
-        exit 1
+        echo "Не удалось определить последнюю версию youtubeUnblock! Используем версию по умолчанию 1.0.0"
+        LATEST_VERSION="v1.0.0"
     fi
 
     BASE_URL="https://github.com/Waujito/youtubeUnblock/releases/download/${LATEST_VERSION}/"
